@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ラザフォードの実験シミュレーション</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0e1a;
+            --bg-panel: #111827;
+            --bg-card: #1e293b;
+            --accent-gold: #fbbf24;
+            --accent-cyan: #22d3ee;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 16px;
+            padding: 14px 20px;
+            background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-card) 100%);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(90deg, var(--accent-gold), var(--accent-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 240px;
+            gap: 16px;
+        }
+
+        .simulation-area {
+            background: var(--bg-panel);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        .model-tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .model-tab {
+            flex: 1;
+            padding: 12px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .model-tab:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .model-tab.active {
+            color: var(--accent-gold);
+            background: rgba(251, 191, 36, 0.08);
+        }
+
+        .model-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--accent-gold);
+        }
+
+        .model-tab .tab-desc {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: 400;
+            margin-top: 2px;
+            opacity: 0.7;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: radial-gradient(ellipse at center, #0f172a 0%, #020617 100%);
+        }
+
+        #simulationCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .model-indicator {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 6px 12px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+        }
+
+        .model-indicator.thomson {
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+        }
+
+        .model-indicator.nuclear {
+            color: var(--accent-red);
+            border-color: var(--accent-red);
+        }
+
+        .zoom-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .zoom-toggle:hover {
+            background: rgba(0,0,0,0.85);
+            border-color: var(--accent-gold);
+        }
+
+        .zoom-toggle input {
+            display: none;
+        }
+
+        .zoom-checkbox {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--text-secondary);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .zoom-toggle input:checked + .zoom-checkbox {
+            background: var(--accent-gold);
+            border-color: var(--accent-gold);
+        }
+
+        .zoom-checkbox svg {
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+
+        .zoom-toggle input:checked + .zoom-checkbox svg {
+            opacity: 1;
+        }
+
+        .zoom-label {
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .zoom-label svg {
+            color: var(--accent-gold);
+        }
+
+        .paused-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 12px 24px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--accent-gold);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--accent-gold);
+            display: none;
+        }
+
+        .paused-overlay.visible {
+            display: block;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .panel-card {
+            background: var(--bg-panel);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            padding: 12px;
+        }
+
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .stats-grid {
+            display: grid;
+            gap: 8px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background: var(--bg-card);
+            border-radius: 6px;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .stat-value.transmitted {
+            color: var(--accent-green);
+        }
+
+        .stat-value.scattered {
+            color: var(--accent-gold);
+        }
+
+        .stat-value.backscattered {
+            color: var(--accent-red);
+        }
+
+        .control-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-gold), #f59e0b);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(251, 191, 36, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            background: var(--border-color);
+        }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--accent-red);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .btn-danger:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        .speed-control {
+            margin-top: 6px;
+        }
+
+        .speed-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .speed-slider {
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            background: var(--bg-card);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .speed-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(251, 191, 36, 0.4);
+        }
+
+        .legend {
+            display: grid;
+            gap: 6px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.75rem;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .legend-color.alpha {
+            background: var(--accent-gold);
+            box-shadow: 0 0 6px var(--accent-gold);
+        }
+
+        .legend-color.nucleus {
+            background: var(--accent-red);
+            box-shadow: 0 0 6px var(--accent-red);
+        }
+
+        .legend-color.electron {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 5px var(--accent-cyan);
+        }
+
+        .legend-color.positive {
+            background: #f87171;
+            border: 2px solid #fca5a5;
+        }
+
+        .ratio-display {
+            text-align: center;
+            padding: 10px;
+            background: var(--bg-card);
+            border-radius: 6px;
+            margin-top: 6px;
+        }
+
+        .ratio-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-red);
+        }
+
+        .ratio-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* Tablet */
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+            
+            .control-panel {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+
+            .canvas-container {
+                aspect-ratio: 16/10;
+            }
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+
+            header {
+                padding: 10px 14px;
+                margin-bottom: 10px;
+            }
+
+            h1 {
+                font-size: 1.1rem;
+            }
+
+            .subtitle {
+                font-size: 0.75rem;
+            }
+
+            .model-tab {
+                padding: 10px 8px;
+                font-size: 0.8rem;
+            }
+
+            .model-tab .tab-desc {
+                font-size: 0.6rem;
+            }
+
+            .control-panel {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .panel-card:first-child {
+                grid-column: 1 / -1;
+            }
+
+            .canvas-container {
+                aspect-ratio: 4/3;
+            }
+
+            .zoom-toggle {
+                padding: 6px 10px;
+            }
+
+            .zoom-label {
+                font-size: 0.7rem;
+            }
+
+            .model-indicator {
+                font-size: 0.7rem;
+                padding: 5px 8px;
+            }
+
+            .btn {
+                padding: 8px 12px;
+                font-size: 0.8rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>ラザフォードの α粒子散乱実験</h1>
+            <p class="subtitle">金箔にα粒子を打ち込み、原子の内部構造を探る</p>
+        </header>
+
+        <div class="main-content">
+            <div class="simulation-area">
+                <div class="model-tabs">
+                    <button class="model-tab active" data-model="thomson">
+                        トムソンモデル
+                        <span class="tab-desc">ブドウパン型（正電荷が均一分布）</span>
+                    </button>
+                    <button class="model-tab" data-model="nuclear">
+                        実際の原子
+                        <span class="tab-desc">？？？（観察して考えよう）</span>
+                    </button>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="simulationCanvas"></canvas>
+                    <div class="model-indicator thomson" id="modelIndicator">トムソンモデル</div>
+                    <label class="zoom-toggle">
+                        <input type="checkbox" id="zoomToggle">
+                        <span class="zoom-checkbox">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="3">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </span>
+                        <span class="zoom-label">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="M21 21l-4.35-4.35"></path>
+                                <path d="M11 8v6"></path>
+                                <path d="M8 11h6"></path>
+                            </svg>
+                            原子を拡大
+                        </span>
+                    </label>
+                    <div class="paused-overlay" id="pausedOverlay">一時停止中</div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <div class="panel-card">
+                    <div class="panel-title">統計データ</div>
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <span class="stat-label">発射数</span>
+                            <span class="stat-value" id="totalCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">素通り</span>
+                            <span class="stat-value transmitted" id="transmittedCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">散乱（＞30°）</span>
+                            <span class="stat-value scattered" id="scatteredCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">後方散乱（＞90°）</span>
+                            <span class="stat-value backscattered" id="backscatteredCount">0</span>
+                        </div>
+                    </div>
+                    <div class="ratio-display" id="ratioDisplay" style="display: none;">
+                        <div class="ratio-value" id="ratioValue">-</div>
+                        <div class="ratio-label">後方散乱の割合</div>
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <div class="panel-title">操作</div>
+                    <div class="control-buttons">
+                        <button class="btn btn-primary" id="startBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M8 5v14l11-7z"/>
+                            </svg>
+                            実験開始
+                        </button>
+                        <button class="btn btn-secondary" id="pauseBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+                            </svg>
+                            一時停止
+                        </button>
+                        <button class="btn btn-danger" id="resetBtn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                            </svg>
+                            リセット
+                        </button>
+                    </div>
+                    <div class="speed-control">
+                        <div class="speed-label">
+                            <span>発射速度</span>
+                            <span id="speedValue">普通</span>
+                        </div>
+                        <input type="range" class="speed-slider" id="speedSlider" min="1" max="3" value="2">
+                    </div>
+                </div>
+
+                <div class="panel-card">
+                    <div class="panel-title">凡例</div>
+                    <div class="legend">
+                        <div class="legend-item">
+                            <div class="legend-color alpha"></div>
+                            <span>α粒子（＋）</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color positive"></div>
+                            <span>正電荷分布（＋）</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color electron"></div>
+                            <span>電子（−）</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color nucleus"></div>
+                            <span>？（実際の原子）</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            const rect = container.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            
+            ctx.scale(dpr, dpr);
+            
+            return { width: rect.width, height: rect.height };
+        }
+        
+        let canvasSize = resizeCanvas();
+        window.addEventListener('resize', () => {
+            canvasSize = resizeCanvas();
+            initAtoms();
+        });
+
+        let currentModel = 'thomson';
+        let isZoomed = false;
+        let isRunning = false;
+        let isPaused = false;
+        let animationId = null;
+        let particles = [];
+        let atoms = [];
+        let stats = { total: 0, transmitted: 0, scattered: 0, backscattered: 0 };
+        let fireRate = 40;
+        let frameCount = 0;
+        let speedMultiplier = 1;
+
+        const ALPHA_SPEED = 3.0;
+        const ALPHA_CHARGE = 2;
+        const NUCLEUS_CHARGE = 79;
+        // 散乱確率を調整（中間値）
+        const COULOMB_CONSTANT_NUCLEAR = 0.007;
+        const NUCLEUS_EFFECTIVE_RADIUS = 5.5;
+
+        const FOIL_X = 0.45;
+        const FOIL_WIDTH = 0.15;
+
+        class Atom {
+            constructor(x, y, radius) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.nucleusRadius = currentModel === 'nuclear' ? radius * 0.03 : radius;
+                this.electrons = [];
+                
+                this.positiveCharges = [];
+                const chargeCount = 10;
+                for (let i = 0; i < chargeCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const r = Math.random() * radius * 0.8;
+                    this.positiveCharges.push({
+                        x: Math.cos(angle) * r,
+                        y: Math.sin(angle) * r
+                    });
+                }
+                
+                const electronCount = 3;
+                for (let i = 0; i < electronCount; i++) {
+                    this.electrons.push({
+                        angle: (Math.PI * 2 / electronCount) * i + Math.random(),
+                        orbitRadius: radius * (0.4 + Math.random() * 0.4),
+                        speed: 0.012 + Math.random() * 0.012
+                    });
+                }
+            }
+
+            update() {
+                this.electrons.forEach(e => {
+                    e.angle += e.speed;
+                });
+            }
+
+            draw(ctx, showAtomicDetail) {
+                if (!showAtomicDetail) return;
+
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                if (currentModel === 'thomson') {
+                    const gradient = ctx.createRadialGradient(
+                        this.x, this.y, 0,
+                        this.x, this.y, this.radius
+                    );
+                    gradient.addColorStop(0, 'rgba(254, 150, 150, 0.4)');
+                    gradient.addColorStop(0.5, 'rgba(254, 150, 150, 0.25)');
+                    gradient.addColorStop(1, 'rgba(254, 150, 150, 0.05)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#f87171';
+                    ctx.font = 'bold 11px "Noto Sans JP"';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    
+                    this.positiveCharges.forEach(charge => {
+                        ctx.fillText('+', this.x + charge.x, this.y + charge.y);
+                    });
+                    
+                } else {
+                    const nucleusGlow = ctx.createRadialGradient(
+                        this.x, this.y, 0,
+                        this.x, this.y, this.nucleusRadius * 5
+                    );
+                    nucleusGlow.addColorStop(0, 'rgba(239, 68, 68, 1)');
+                    nucleusGlow.addColorStop(0.3, 'rgba(239, 68, 68, 0.5)');
+                    nucleusGlow.addColorStop(1, 'rgba(239, 68, 68, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.nucleusRadius * 5, 0, Math.PI * 2);
+                    ctx.fillStyle = nucleusGlow;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.nucleusRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ef4444';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 7px "Noto Sans JP"';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('+', this.x, this.y);
+                }
+
+                this.electrons.forEach(e => {
+                    const ex = this.x + Math.cos(e.angle) * e.orbitRadius;
+                    const ey = this.y + Math.sin(e.angle) * e.orbitRadius;
+                    
+                    const eGradient = ctx.createRadialGradient(ex, ey, 0, ex, ey, 6);
+                    eGradient.addColorStop(0, 'rgba(34, 211, 238, 0.9)');
+                    eGradient.addColorStop(1, 'rgba(34, 211, 238, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = eGradient;
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#22d3ee';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 5px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('−', ex, ey);
+                });
+            }
+
+            getForce(px, py) {
+                const dx = px - this.x;
+                const dy = py - this.y;
+                const distSq = dx * dx + dy * dy;
+                const dist = Math.sqrt(distSq);
+
+                if (currentModel === 'thomson') {
+                    if (dist < this.radius) {
+                        const ratio = dist / this.radius;
+                        const forceMag = 0.000005 * ALPHA_CHARGE * NUCLEUS_CHARGE * ratio / (this.radius * this.radius);
+                        return {
+                            fx: (dx / dist) * forceMag,
+                            fy: (dy / dist) * forceMag
+                        };
+                    }
+                    return { fx: 0, fy: 0 };
+                } else {
+                    const minDist = this.nucleusRadius * 0.8;
+                    const effectiveDist = Math.max(dist, minDist);
+                    
+                    let forceMag = COULOMB_CONSTANT_NUCLEAR * ALPHA_CHARGE * NUCLEUS_CHARGE / (effectiveDist * effectiveDist);
+                    
+                    // 有効半径内で力を増強
+                    if (dist < NUCLEUS_EFFECTIVE_RADIUS) {
+                        forceMag *= (NUCLEUS_EFFECTIVE_RADIUS / effectiveDist) * 0.9;
+                    }
+                    
+                    return {
+                        fx: (dx / dist) * forceMag,
+                        fy: (dy / dist) * forceMag
+                    };
+                }
+            }
+        }
+
+        class AlphaParticle {
+            constructor(x, y, vx, vy) {
+                this.x = x;
+                this.y = y;
+                this.vx = vx;
+                this.vy = vy;
+                this.initialVx = vx;
+                this.initialVy = vy;
+                this.trail = [];
+                this.active = true;
+                this.counted = false;
+            }
+
+            update(atoms) {
+                if (!this.active) return;
+
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 60) {
+                    this.trail.shift();
+                }
+
+                let totalFx = 0;
+                let totalFy = 0;
+
+                atoms.forEach(atom => {
+                    const force = atom.getForce(this.x, this.y);
+                    totalFx += force.fx;
+                    totalFy += force.fy;
+                });
+
+                this.vx += totalFx;
+                this.vy += totalFy;
+
+                this.x += this.vx * speedMultiplier;
+                this.y += this.vy * speedMultiplier;
+
+                if (this.x < -30 || this.x > canvasSize.width + 30 ||
+                    this.y < -30 || this.y > canvasSize.height + 30) {
+                    this.active = false;
+                    
+                    if (!this.counted) {
+                        this.counted = true;
+                        stats.total++;
+
+                        const initialAngle = Math.atan2(this.initialVy, this.initialVx);
+                        const finalAngle = Math.atan2(this.vy, this.vx);
+                        let scatterAngle = Math.abs(finalAngle - initialAngle);
+                        if (scatterAngle > Math.PI) scatterAngle = 2 * Math.PI - scatterAngle;
+                        const scatterDegrees = scatterAngle * 180 / Math.PI;
+
+                        if (scatterDegrees > 90) {
+                            stats.backscattered++;
+                            stats.scattered++;
+                        } else if (scatterDegrees > 30) {
+                            stats.scattered++;
+                        } else {
+                            stats.transmitted++;
+                        }
+
+                        updateStats();
+                    }
+                }
+            }
+
+            draw(ctx) {
+                if (!this.active && this.trail.length === 0) return;
+
+                if (this.trail.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    
+                    for (let i = 1; i < this.trail.length; i++) {
+                        ctx.lineTo(this.trail[i].x, this.trail[i].y);
+                    }
+                    
+                    const gradient = ctx.createLinearGradient(
+                        this.trail[0].x, this.trail[0].y,
+                        this.trail[this.trail.length - 1].x, this.trail[this.trail.length - 1].y
+                    );
+                    gradient.addColorStop(0, 'rgba(251, 191, 36, 0)');
+                    gradient.addColorStop(1, 'rgba(251, 191, 36, 0.7)');
+                    
+                    ctx.strokeStyle = gradient;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+
+                if (this.active) {
+                    const glow = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, 12);
+                    glow.addColorStop(0, 'rgba(251, 191, 36, 0.9)');
+                    glow.addColorStop(0.5, 'rgba(251, 191, 36, 0.4)');
+                    glow.addColorStop(1, 'rgba(251, 191, 36, 0)');
+                    
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 12, 0, Math.PI * 2);
+                    ctx.fillStyle = glow;
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fbbf24';
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#000';
+                    ctx.font = 'bold 6px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('+', this.x, this.y);
+                }
+
+                if (!this.active && this.trail.length > 0) {
+                    this.trail.shift();
+                }
+            }
+
+            updateTrailOnly() {
+                if (!this.active && this.trail.length > 0) {
+                    // 一時停止中はトレイルを維持
+                }
+            }
+        }
+
+        function initAtoms() {
+            atoms = [];
+            const atomRadius = 35;
+            const spacing = atomRadius * 2.1;
+            const startX = canvasSize.width * FOIL_X + 10;
+            const rows = Math.ceil(canvasSize.height / spacing) + 1;
+            
+            for (let row = 0; row < rows; row++) {
+                const y = row * spacing + spacing / 2;
+                const offsetX = (row % 2) * (spacing / 2);
+                
+                for (let col = 0; col < 3; col++) {
+                    const x = startX + col * spacing + offsetX;
+                    atoms.push(new Atom(x, y, atomRadius));
+                }
+            }
+        }
+
+        function fireParticle() {
+            const y = Math.random() * canvasSize.height;
+            const particle = new AlphaParticle(
+                -15,
+                y,
+                ALPHA_SPEED,
+                (Math.random() - 0.5) * 0.15
+            );
+            particles.push(particle);
+        }
+
+        function updateStats() {
+            document.getElementById('totalCount').textContent = stats.total;
+            document.getElementById('transmittedCount').textContent = stats.transmitted;
+            document.getElementById('scatteredCount').textContent = stats.scattered;
+            document.getElementById('backscatteredCount').textContent = stats.backscattered;
+
+            if (currentModel === 'nuclear' && stats.total > 0) {
+                const ratioDisplay = document.getElementById('ratioDisplay');
+                ratioDisplay.style.display = 'block';
+                
+                if (stats.backscattered > 0) {
+                    const ratio = Math.round(stats.total / stats.backscattered);
+                    document.getElementById('ratioValue').textContent = `1 / ${ratio}`;
+                } else {
+                    document.getElementById('ratioValue').textContent = '0 / ' + stats.total;
+                }
+            }
+        }
+
+        function drawGoldFoil() {
+            const foilX = canvasSize.width * FOIL_X;
+            const foilW = canvasSize.width * FOIL_WIDTH;
+            
+            const gradient = ctx.createLinearGradient(foilX, 0, foilX + foilW, 0);
+            gradient.addColorStop(0, 'rgba(251, 191, 36, 0.15)');
+            gradient.addColorStop(0.3, 'rgba(251, 191, 36, 0.45)');
+            gradient.addColorStop(0.5, 'rgba(251, 191, 36, 0.55)');
+            gradient.addColorStop(0.7, 'rgba(251, 191, 36, 0.45)');
+            gradient.addColorStop(1, 'rgba(251, 191, 36, 0.15)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(foilX, 0, foilW, canvasSize.height);
+            
+            ctx.strokeStyle = 'rgba(251, 191, 36, 0.25)';
+            ctx.lineWidth = 1;
+            for (let y = 0; y < canvasSize.height; y += 6) {
+                ctx.beginPath();
+                ctx.moveTo(foilX, y);
+                ctx.lineTo(foilX + foilW, y + (Math.random() - 0.5) * 3);
+                ctx.stroke();
+            }
+            
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.85)';
+            ctx.font = '11px "Noto Sans JP"';
+            ctx.textAlign = 'center';
+            ctx.fillText('金箔', foilX + foilW / 2, 18);
+        }
+
+        function animate() {
+            // 一時停止中は描画のみ、更新はしない
+            if (!isPaused) {
+                ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+
+                drawGoldFoil();
+
+                atoms.forEach(atom => {
+                    atom.update();
+                    atom.draw(ctx, isZoomed);
+                });
+
+                if (isRunning) {
+                    frameCount++;
+                    const adjustedFireRate = Math.max(8, fireRate / speedMultiplier);
+                    if (frameCount >= adjustedFireRate) {
+                        fireParticle();
+                        frameCount = 0;
+                    }
+                }
+
+                particles = particles.filter(p => p.active || p.trail.length > 0);
+                particles.forEach(particle => {
+                    particle.update(atoms);
+                    particle.draw(ctx);
+                });
+
+                ctx.fillStyle = 'rgba(251, 191, 36, 0.6)';
+                ctx.font = '10px "Noto Sans JP"';
+                ctx.textAlign = 'left';
+                ctx.fillText('α線源 →', 8, canvasSize.height / 2);
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function resetSimulation() {
+            particles = [];
+            stats = { total: 0, transmitted: 0, scattered: 0, backscattered: 0 };
+            frameCount = 0;
+            isRunning = false;
+            isPaused = false;
+            document.getElementById('pausedOverlay').classList.remove('visible');
+            updateStats();
+            document.getElementById('ratioDisplay').style.display = 'none';
+            initAtoms();
+        }
+
+        document.querySelectorAll('.model-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                currentModel = tab.dataset.model;
+                
+                const indicator = document.getElementById('modelIndicator');
+                if (currentModel === 'thomson') {
+                    indicator.textContent = 'トムソンモデル';
+                    indicator.className = 'model-indicator thomson';
+                } else {
+                    indicator.textContent = '実際の原子';
+                    indicator.className = 'model-indicator nuclear';
+                }
+                
+                resetSimulation();
+            });
+        });
+
+        document.getElementById('zoomToggle').addEventListener('change', (e) => {
+            isZoomed = e.target.checked;
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            isRunning = true;
+            isPaused = false;
+            document.getElementById('pausedOverlay').classList.remove('visible');
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            if (isRunning) {
+                isPaused = !isPaused;
+                document.getElementById('pausedOverlay').classList.toggle('visible', isPaused);
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            const value = parseInt(e.target.value);
+            const speeds = ['遅い', '普通', '速い'];
+            const multipliers = [0.5, 1, 2];
+            
+            document.getElementById('speedValue').textContent = speeds[value - 1];
+            speedMultiplier = multipliers[value - 1];
+            fireRate = 35 / multipliers[value - 1];
+        });
+
+        initAtoms();
+        animate();
+    </script>
+</body>
+</html>
